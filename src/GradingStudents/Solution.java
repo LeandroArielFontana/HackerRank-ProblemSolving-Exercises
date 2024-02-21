@@ -12,7 +12,7 @@ class Result {
         int number;
 
         for (Integer student : grades) {
-            number = (int) (5*(Math.ceil(Math.abs(student/5)))+5);
+            number = (int) (5*((double) Math.abs(student / 5))+5);
             if (((number - student) >= 3) || (student < 38)) {
                 results.add(student);
             } else if ((number - student) < 3) {
