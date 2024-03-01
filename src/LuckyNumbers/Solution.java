@@ -1,68 +1,122 @@
 package LuckyNumbers;
 
 import java.io.*;
-import java.util.stream.*;
-import static java.util.stream.Collectors.joining;
-
-class Result {
-    public static boolean isPrime(Integer number) {
-        if (number <= 1) return false;
-
-        for (int i = 2; i <= Math.sqrt(number); i++) {
-            if (number % i == 0) return false;
-        }
-
-        return true;
-    }
-
-    public static long luckyNumbers(long a, long b) {
-        int countLuckyNumber = 0;
-        int digitNumber;
-        int digitSumatory = 0;
-        int sqareDigitSumatory = 0;
-
-
-        for (long i = a; i <= b; i++) {
-            String numberAsString = String.valueOf(i);
-            for (int j = 0; j < numberAsString.length(); j++) {
-                digitNumber = Character.getNumericValue(numberAsString.charAt(j));
-                digitSumatory += digitNumber;
-                sqareDigitSumatory += (int)Math.pow(digitNumber, 2);
-            }
-
-            if (isPrime(sqareDigitSumatory) && isPrime(digitSumatory)) countLuckyNumber++;
-            digitSumatory = 0;
-            sqareDigitSumatory = 0;
-        }
-        return countLuckyNumber;
-    }
-
-}
+import java.math.*;
+import java.text.*;
+import java.util.*;
+import java.util.regex.*;
 
 public class Solution {
-    public static void main(String[] args) throws IOException {
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(System.out));
+    static long luckyNumbers(long a, long b) {
+        return Method1.luckyNumbers(a, b);
+    }
 
-        int t = Integer.parseInt(bufferedReader.readLine().trim());
+    static class Method1 {
+        static final int max_bit = 19;
+        static final int max_digit_sum = 9 * 18 + 1;
+        static final int max_squre_digit_sum = 9 * 9 * 18 + 1;
 
-        IntStream.range(0, t).forEach(tItr -> {
-            try {
-                String[] firstMultipleInput = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
+        static long[][][] sum = new long[max_bit][max_digit_sum][max_squre_digit_sum];
+        static long[][][] left_sum = new long[max_bit][max_digit_sum][max_squre_digit_sum];
+        static boolean[] is_prime = new boolean[max_squre_digit_sum];
+        static long[] bit_sum = new long[max_bit];
+        static int tot = 231, max1, max2;
+        static int[] prime = new int[tot];
+        static {
+            Arrays.fill(is_prime, true);
+            int ct = 0;
+            is_prime[0] = is_prime[1] = false;
+            for (int i = 2; i < max_squre_digit_sum; i++)
+                if (is_prime[i]) {
+                    for (int j = i + i; j < max_squre_digit_sum; j += i)
+                        is_prime[j] = false;
+                    prime[ct++] = i;
+                    if (i < max_digit_sum)
+                        max1 = Math.max(max1, i);
+                    max2 = Math.max(max2, i);
+                }
+            sum[0][0][0] = 1;
+            for (int i = 0; prime[i] <= max1; i++)
+                for (int j = 0; j < tot && prime[j] <= max2; j++) {
+                    left_sum[0][prime[i]][prime[j]] += 1;
+                }
 
-                long a = Long.parseLong(firstMultipleInput[0]);
-                long b = Long.parseLong(firstMultipleInput[1]);
-                long result = Result.luckyNumbers(a, b);
+            for (int i = 0; i < max_bit - 1; i++) {
+                for (int next = 0; next < 10; next++) {
 
-                bufferedWriter.write(String.valueOf(result));
-                bufferedWriter.newLine();
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
+                    for (int j = 0; j + next < max_digit_sum; j++)
+                        for (int k = 0; k + next * next < max_squre_digit_sum; k++) {
+                            sum[i + 1][j + next][k + next * next] += sum[i][j][k];
+                            if (next > 0 && is_prime[j + next] && is_prime[k + next * next])
+                                bit_sum[i + 1] += sum[i][j][k];
+                        }
+
+                    for (int j = next; j < max_digit_sum; j++)
+                        for (int k = next * next; k < max_squre_digit_sum; k++) {
+                            left_sum[i + 1][j - next][k - next * next] += left_sum[i][j][k];
+                        }
+                }
             }
-        });
+        }
 
-        bufferedReader.close();
+        static long luckyNumbers(long a, long b) {
+            return go(b) - go(a - 1);
+        }
+
+        static long go(long N) {
+            if (N == 0)
+                return 0;
+            long ret = 0;
+            boolean first = true;
+            int pre_digit_sum = 0, pre_sdigit_sum = 0;
+            for (int i = 19; i > 0; i--) {
+                int bit = get_bit(N, i - 1);
+                int least;
+                if (bit != 0 && first) {
+                    least = 1;
+                    first = false;
+                    for (int j = 1; j < i; j++)
+                        ret += bit_sum[j];
+                } else {
+                    least = 0;
+                }
+
+                for (int nbit = least; nbit < bit; nbit++) {
+                    int digit_sum = pre_digit_sum + nbit;
+                    int sdigit_sum = pre_sdigit_sum + nbit * nbit;
+                    ret += left_sum[i - 1][digit_sum][sdigit_sum];
+                }
+                pre_digit_sum += bit;
+                pre_sdigit_sum += bit * bit;
+            }
+            if (is_prime[pre_digit_sum] && is_prime[pre_sdigit_sum])
+                ret += 1;
+            return ret;
+        }
+
+        static int get_bit(long n, int m) {
+            for (int i = 0; i < m; i++)
+                n /= 10;
+            return (int) (n % 10);
+        }
+    }
+    private static final Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) throws IOException {
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(System.getenv("OUTPUT_PATH")));
+        int t = Integer.parseInt(scanner.nextLine().trim());
+
+        for (int tItr = 0; tItr < t; tItr++) {
+            String[] ab = scanner.nextLine().split(" ");
+            long a = Long.parseLong(ab[0].trim());
+            long b = Long.parseLong(ab[1].trim());
+
+            long result = luckyNumbers(a, b);
+
+            bufferedWriter.write(String.valueOf(result));
+            bufferedWriter.newLine();
+        }
+
         bufferedWriter.close();
     }
 }
-
